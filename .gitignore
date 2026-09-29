@@ -23,5 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
+#test
+coverage
+
 *storybook.log
 storybook-static
