@@ -4,7 +4,7 @@
 
 ## 安装
 
-需要 Node.js >= 20.11。
+需要 Node.js >= 20.12。
 
 ### 全局安装
 
@@ -53,18 +53,52 @@ extractlet --pdf "path/to/file.pdf"
 extractlet --pdf "path/to/file.pdf" --pages 1-5 --out "path/to/dir"
 ```
 
+### 输出到标准输出
+
+```bash
+extractlet --pdf "path/to/file.pdf" --pages 1-5 --out - | more
+```
+
+此时正文写入 stdout，状态信息与警告写入 stderr。
+
+### 覆盖已有的输出文件
+
+```bash
+extractlet --pdf "path/to/file.pdf" --pages 1-5 --force
+```
+
+### 控制输出详细程度
+
+```bash
+extractlet --pdf "path/to/file.pdf" --quiet     # 只输出警告与错误
+extractlet --pdf "path/to/file.pdf" --verbose   # 额外输出选项、各阶段耗时与每页字符数
+```
+
+- `--quiet` 与 `--verbose` 不能同时使用；`--verbose` 的额外信息写入 stderr。
+- 警告（黄色）与错误（红色）仅在终端支持颜色时上色，设置 `NO_COLOR=1` 可关闭。
+
 ## 输出
 
 提取出的文本文件默认保存到当前工作目录下的 `output/` 目录（可通过 `--out` 指定），文件名为 `{pdf文件名}_{页码范围}.txt`。
 
+- 文件名超过 200 个字符时，改为 `{pdf文件名}_{首页}-{末页}_{页数}pages.txt`。
+- 输出文件已存在时默认报错，需加 `--force` 才会覆盖。
+- 有页面没有提取到文本时会输出警告；扫描版 PDF（纯图片）需要 OCR，本工具不支持。
+- 不支持加密 PDF。
+
 ## 参数说明
 
-| 参数              | 别名 | 说明                               |
-|-------------------|------|------------------------------------|
-| `--pdf <path>`    | `-p` | PDF 文件路径（必填）               |
-| `--pages <range>` | `-r` | 要提取的页码范围（可选，默认全部） |
-| `--out <dir>`     | `-o` | 输出目录（可选，默认 `./output`）  |
-| `--help`          | `-h` | 显示帮助信息                       |
+| 参数              | 别名 | 说明                                               |
+|-------------------|------|----------------------------------------------------|
+| `--pdf <path>`    | `-p` | PDF 文件路径（必填）                               |
+| `--pages <range>` | `-r` | 要提取的页码范围（可选，默认全部）                 |
+| `--out <dir>`     | `-o` | 输出目录，`-` 表示 stdout（可选，默认 `./output`） |
+| `--force`         | `-f` | 覆盖已存在的输出文件                               |
+| `--quiet`         | `-q` | 不输出状态信息，仅保留警告与错误                   |
+| `--verbose`       | `-v` | 输出选项、各阶段耗时与每页字符数                   |
+| `--help`          | `-h` | 显示帮助信息                                       |
+
+长参数也支持 `--pdf=path/to/file.pdf` 写法；未知参数或缺少取值时会报错。
 
 ## 本地开发
 
