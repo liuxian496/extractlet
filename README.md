@@ -102,6 +102,8 @@ extractlet --pdf "path/to/file.pdf" --verbose   # 额外输出选项、各阶段
 
 ## 本地开发
 
+[仓库地址](https://github.com/liuxian496/extractlet/)
+
 ```bash
 npm install
 npm run build
