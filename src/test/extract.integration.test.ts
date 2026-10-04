@@ -1,8 +1,9 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterAll, beforeAll, expect, it, vi } from 'vitest';
-import { getTotalPages, main } from '../scripts/extract.lib.ts';
+import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest';
+import { CliError } from '../scripts/extract.core.ts';
+import { getTotalPages, main, openPdf } from '../scripts/extract.lib.ts';
 
 /** 生成每页一行文本的最小 PDF（仅 ASCII，偏移量按字节计算） */
 function buildPdf(pageTexts: string[]): Buffer {
@@ -52,8 +53,17 @@ afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 it('读取真实 PDF 的总页数', async () => {
-  await expect(getTotalPages(pdfPath)).resolves.toBe(3);
+  const parser = await openPdf(pdfPath);
+  try {
+    await expect(getTotalPages(parser)).resolves.toBe(3);
+  } finally {
+    await parser.destroy();
+  }
 });
 
 it('从真实 PDF 中提取指定页面并写入文件', async () => {
@@ -63,10 +73,45 @@ it('从真实 PDF 中提取指定页面并写入文件', async () => {
   await main(['--pdf', pdfPath, '--pages', '1,3', '--out', outDir]);
 
   const output = fs.readFileSync(path.join(outDir, 'sample_1,3.txt'), 'utf-8');
-  expect(output).toContain('===== PAGE 1 =====');
+  expect(output.startsWith('===== PAGE 1 =====')).toBe(true);
   expect(output).toContain('First page');
   expect(output).toContain('===== PAGE 3 =====');
   expect(output).toContain('Third page');
   expect(output).not.toContain('Second page');
-  vi.restoreAllMocks();
+});
+
+it('输出文件已存在时拒绝覆盖，--force 后覆盖', async () => {
+  vi.spyOn(console, 'log').mockImplementation(() => { });
+  const outDir = path.join(tmpDir, 'force');
+  const args = ['--pdf', pdfPath, '--pages', '2', '--out', outDir];
+
+  await main(args);
+  await expect(main(args)).rejects.toBeInstanceOf(CliError);
+  await expect(main([...args, '--force'])).resolves.toBeUndefined();
+});
+
+it('--out - 时将正文写入 stdout', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => { });
+  const stdoutSpy = vi
+    .spyOn(process.stdout, 'write')
+    .mockImplementation(() => true);
+
+  await main(['--pdf', pdfPath, '--pages', '2', '--out', '-']);
+
+  expect(stdoutSpy).toHaveBeenCalledExactlyOnceWith(
+    expect.stringContaining('Second page')
+  );
+});
+
+it('损坏的 PDF 给出友好提示', async () => {
+  const badPath = path.join(tmpDir, 'bad.pdf');
+  fs.writeFileSync(badPath, 'this is not a pdf');
+
+  const error = await main(['--pdf', badPath, '--out', tmpDir]).catch(
+    (thrown: unknown) => thrown
+  );
+  expect(error).toBeInstanceOf(CliError);
+  expect(error).toMatchObject({
+    message: 'Error: Invalid or corrupted PDF file.',
+  });
 });

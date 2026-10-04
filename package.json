@@ -18,7 +18,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=20.11"
+    "node": ">=20.12"
   },
   "scripts": {
     "dev": "vite",

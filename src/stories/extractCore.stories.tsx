@@ -2,13 +2,15 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect } from 'storybook/test';
 import {
   buildRangeText,
-  findInvalidPages,
+  createLogger,
   formatPages,
   getOutputFileName,
   getUsage,
+  inspectPages,
   parseCliArgs,
   parsePageRanges,
 } from '../scripts/extract.core.ts';
+import type { LogLevel } from '../scripts/extract.core.types.ts';
 
 interface CoreCaseProps {
   /** 被测调用 / Call under test */
@@ -98,9 +100,20 @@ export const ParseMixedDedupSorted: Story = {
   },
 };
 
-export const ParseNoUpperBoundCheck: Story = {
-  name: 'parsePageRanges：不校验总页数上限',
-  args: { run: () => parsePageRanges('0,9', 3), expected: [0, 9] },
+export const ParseOutOfRange: Story = {
+  name: 'parsePageRanges：列出所有越界段',
+  args: {
+    run: () => parsePageRanges('0,2,4-6', 3),
+    error: 'RangeError: Pages out of range (1-3): 0, 4-6',
+  },
+};
+
+export const ParseHugeRangeFailsFast: Story = {
+  name: 'parsePageRanges：超大范围不展开直接报错',
+  args: {
+    run: () => parsePageRanges('1-999999999', 3),
+    error: 'RangeError: Pages out of range (1-3): 1-999999999',
+  },
 };
 
 export const ParseInvalidEmptySegment = invalidRange('1,,2', '');
@@ -192,16 +205,41 @@ export const FileNameChinese: Story = {
   },
 };
 
-// ---------- findInvalidPages ----------
-
-export const InvalidPagesNone: Story = {
-  name: 'findInvalidPages：全部在范围内',
-  args: { run: () => findInvalidPages([1, 2, 3], 3), expected: [] },
+export const FileNameTooLong: Story = {
+  name: 'getOutputFileName：文件名过长时改用首末页与页数',
+  args: {
+    run: () =>
+      getOutputFileName(
+        '/a/report.pdf',
+        Array.from({ length: 100 }, (_, index) => index * 2 + 1)
+      ),
+    expected: 'report_1-199_100pages.txt',
+  },
 };
 
-export const InvalidPagesOutOfRange: Story = {
-  name: 'findInvalidPages：返回越界页码',
-  args: { run: () => findInvalidPages([0, 2, 5], 3), expected: [0, 5] },
+// ---------- inspectPages ----------
+
+export const InspectPagesAllPresent: Story = {
+  name: 'inspectPages：全部页都有文本',
+  args: {
+    run: () => inspectPages([{ num: 1, text: 'a' }], [1]),
+    expected: { missing: [], empty: [] },
+  },
+};
+
+export const InspectPagesMissingAndEmpty: Story = {
+  name: 'inspectPages：识别缺失页与空白页',
+  args: {
+    run: () =>
+      inspectPages(
+        [
+          { num: 1, text: 'a' },
+          { num: 3, text: ' \n\t' },
+        ],
+        [1, 2, 3]
+      ),
+    expected: { missing: [2], empty: [3] },
+  },
 };
 
 // ---------- formatPages ----------
@@ -216,13 +254,33 @@ export const FormatPagesFiltered: Story = {
   name: 'formatPages：按页拼接并过滤未请求的页',
   args: {
     run: () => formatPages(samplePages, [1, 3]),
-    expected: '\n\n===== PAGE 1 =====\n\nfirst\n\n===== PAGE 3 =====\n\nthird',
+    expected: '===== PAGE 1 =====\n\nfirst\n\n===== PAGE 3 =====\n\nthird',
   },
 };
 
 export const FormatPagesNoMatch: Story = {
   name: 'formatPages：无匹配页时返回空字符串',
   args: { run: () => formatPages(samplePages, [9]), expected: '' },
+};
+
+export const FormatPagesEmptyPages: Story = {
+  name: 'formatPages：pages 为空时返回空字符串',
+  args: { run: () => formatPages(samplePages, []), expected: '' },
+};
+
+export const FormatPagesOrderByPages: Story = {
+  name: 'formatPages：按 pages 顺序输出',
+  args: {
+    run: () =>
+      formatPages(
+        [
+          { num: 3, text: 'third' },
+          { num: 1, text: 'first' },
+        ],
+        [1, 3]
+      ),
+    expected: '===== PAGE 1 =====\n\nfirst\n\n===== PAGE 3 =====\n\nthird',
+  },
 };
 
 // ---------- parseCliArgs ----------
@@ -237,20 +295,54 @@ export const CliLongOptions: Story = {
       pdfPath: 'a.pdf',
       pagesInput: '1-2',
       outDir: 'dist',
+      force: false,
+      logLevel: 'normal',
     },
   },
 };
 
 export const CliShortOptions: Story = {
-  name: 'parseCliArgs：短参数并忽略未知参数',
+  name: 'parseCliArgs：短参数',
   args: {
-    run: () =>
-      parseCliArgs(['--verbose', '-p', 'a.pdf', '-r', '3', '-o', 'dist']),
+    run: () => parseCliArgs(['-p', 'a.pdf', '-r', '3', '-o', 'dist', '-f']),
     expected: {
       action: 'run',
       pdfPath: 'a.pdf',
       pagesInput: '3',
       outDir: 'dist',
+      force: true,
+      logLevel: 'normal',
+    },
+  },
+};
+
+export const CliEqualsSyntax: Story = {
+  name: 'parseCliArgs：长参数支持 = 写法',
+  args: {
+    run: () =>
+      parseCliArgs(['--pdf=a=b.pdf', '--pages=-1', '--out=-', '--force']),
+    expected: {
+      action: 'run',
+      pdfPath: 'a=b.pdf',
+      pagesInput: '-1',
+      outDir: '-',
+      force: true,
+      logLevel: 'normal',
+    },
+  },
+};
+
+export const CliStdoutDash: Story = {
+  name: 'parseCliArgs：单独的 - 可作为取值',
+  args: {
+    run: () => parseCliArgs(['-p', 'a.pdf', '-o', '-']),
+    expected: {
+      action: 'run',
+      pdfPath: 'a.pdf',
+      pagesInput: undefined,
+      outDir: '-',
+      force: false,
+      logLevel: 'normal',
     },
   },
 };
@@ -264,14 +356,46 @@ export const CliOnlyPdf: Story = {
       pdfPath: 'a.pdf',
       pagesInput: undefined,
       outDir: undefined,
+      force: false,
+      logLevel: 'normal',
+    },
+  },
+};
+
+export const CliQuietShort: Story = {
+  name: 'parseCliArgs：-q 设置 quiet 级别',
+  args: {
+    run: () => parseCliArgs(['-p', 'a.pdf', '-q']),
+    expected: {
+      action: 'run',
+      pdfPath: 'a.pdf',
+      pagesInput: undefined,
+      outDir: undefined,
+      force: false,
+      logLevel: 'quiet',
+    },
+  },
+};
+
+export const CliVerboseLong: Story = {
+  name: 'parseCliArgs：--verbose 设置 verbose 级别',
+  args: {
+    run: () => parseCliArgs(['--verbose', '-p', 'a.pdf']),
+    expected: {
+      action: 'run',
+      pdfPath: 'a.pdf',
+      pagesInput: undefined,
+      outDir: undefined,
+      force: false,
+      logLevel: 'verbose',
     },
   },
 };
 
 export const CliHelpLong: Story = {
-  name: 'parseCliArgs：--help 优先于其他参数',
+  name: 'parseCliArgs：--help 优先于其他参数及错误',
   args: {
-    run: () => parseCliArgs(['--pdf', 'a.pdf', '--help']),
+    run: () => parseCliArgs(['--bogus', '--pdf', 'a.pdf', '--help']),
     expected: { action: 'help' },
   },
 };
@@ -289,6 +413,105 @@ export const CliMissingPdf: Story = {
   },
 };
 
+const cliError = (name: string, args: string[], message: string): Story => ({
+  name: `parseCliArgs：${name}`,
+  args: {
+    run: () => parseCliArgs(args),
+    expected: { action: 'error', message: `Error: ${message}` },
+  },
+});
+
+export const CliUnknownOption = cliError(
+  '未知选项报错',
+  ['--debug', '-p', 'a.pdf'],
+  'Unknown option: --debug'
+);
+export const CliUnknownOptionWithValue = cliError(
+  '带 = 的未知选项只报选项名',
+  ['--bogus=1'],
+  'Unknown option: --bogus'
+);
+export const CliUnexpectedArgument = cliError(
+  '多余的位置参数报错',
+  ['a.pdf'],
+  'Unexpected argument: a.pdf'
+);
+export const CliMissingValueAtEnd = cliError(
+  '末尾选项缺少取值',
+  ['--pdf'],
+  '--pdf requires a value.'
+);
+export const CliMissingValueBeforeOption = cliError(
+  '取值位置是另一个选项',
+  ['-p', 'a.pdf', '--pages', '--out', 'dist'],
+  '--pages requires a value.'
+);
+export const CliEmptyEqualsValue = cliError(
+  '= 后为空值',
+  ['--pdf='],
+  '--pdf requires a value.'
+);
+export const CliForceWithValue = cliError(
+  '--force 不接受取值',
+  ['--force=yes', '-p', 'a.pdf'],
+  '--force does not take a value.'
+);
+export const CliVerboseWithValue = cliError(
+  '--verbose 不接受取值',
+  ['-p', 'a.pdf', '--verbose=1'],
+  '--verbose does not take a value.'
+);
+export const CliQuietVerboseConflict = cliError(
+  '--quiet 与 --verbose 不能同时使用',
+  ['-p', 'a.pdf', '-q', '-v'],
+  '--quiet and --verbose cannot be used together.'
+);
+
+// ---------- createLogger ----------
+
+/** 依次调用 info / warn / debug，返回实际被输出的消息 */
+const collectLogs = (level: LogLevel) => {
+  const lines: string[] = [];
+  const logger = createLogger(level, (kind, message) =>
+    lines.push(`[${kind}] ${message}`)
+  );
+  logger.info('Total pages: 3');
+  logger.warn('Warning: Pages with no text: 2');
+  logger.debug('Page 1: 120 chars');
+  return lines;
+};
+
+export const LoggerNormal: Story = {
+  name: 'createLogger：normal 输出 info 与 warn',
+  args: {
+    run: () => collectLogs('normal'),
+    expected: [
+      '[info] Total pages: 3',
+      '[warn] Warning: Pages with no text: 2',
+    ],
+  },
+};
+
+export const LoggerQuiet: Story = {
+  name: 'createLogger：quiet 只保留 warn',
+  args: {
+    run: () => collectLogs('quiet'),
+    expected: ['[warn] Warning: Pages with no text: 2'],
+  },
+};
+
+export const LoggerVerbose: Story = {
+  name: 'createLogger：verbose 额外输出 debug',
+  args: {
+    run: () => collectLogs('verbose'),
+    expected: [
+      '[info] Total pages: 3',
+      '[warn] Warning: Pages with no text: 2',
+      '[debug] Page 1: 120 chars',
+    ],
+  },
+};
+
 // ---------- getUsage ----------
 
 export const Usage: Story = {
@@ -303,6 +526,9 @@ export const Usage: Story = {
       '-p, --pdf <path>',
       '-r, --pages <range>',
       '-o, --out <dir>',
+      '-f, --force',
+      '-q, --quiet',
+      '-v, --verbose',
       '-h, --help',
     ]) {
       await expect(usage).toContain(option);
