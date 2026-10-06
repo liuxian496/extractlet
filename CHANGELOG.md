@@ -1,4 +1,10 @@
 
+# [1.2.0](https://github.com/liuxian496/extractlet/compare/v1.1.2...v1.2.0) (2026-10-06)
+
+### Features
+
+* 新增通过--version/-V获取版本号，并更新测试和文档 ([1866b0b](https://github.com/liuxian496/extractlet/commit/1866b0b411ae0451aaa6d035616d332a3d1bf8c7))
+
 ## [1.1.2](https://github.com/liuxian496/extractlet/compare/v1.1.1...v1.1.2) (2026-10-05)
 
 ## [1.1.1](https://github.com/liuxian496/extractlet/compare/v1.1.0...v1.1.1) (2026-10-05)
