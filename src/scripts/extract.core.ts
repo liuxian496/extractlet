@@ -2,6 +2,8 @@
  * 与运行环境无关的纯逻辑，不依赖任何 node:* 模块
  */
 
+import pkg from '../../package.json' with { type: 'json' };
+
 import type {
   LogKind,
   Logger,
@@ -12,6 +14,7 @@ import type {
 /** 命令行参数解析结果 */
 type CliCommand =
   | { action: 'help' }
+  | { action: 'version', version: string }
   | { action: 'error'; message: string }
   | {
     action: 'run';
@@ -80,6 +83,7 @@ export function getUsage(): string {
     '  -q, --quiet          Suppress status messages (warnings are kept)',
     '  -v, --verbose        Show options, timings and per-page character counts',
     '  -h, --help           Show help',
+    '  -V, --version        Show version',
   ].join('\n');
 }
 
@@ -95,6 +99,10 @@ export function getUsage(): string {
 export function parseCliArgs(args: string[]): CliCommand {
   if (args.some(arg => arg === '--help' || arg === '-h')) {
     return { action: 'help' };
+  }
+
+  if (args.some(arg => arg === '--version' || arg === '-V')) {
+    return { action: 'version', version: pkg.version }
   }
 
   const values: Partial<Record<'pdfPath' | 'pagesInput' | 'outDir', string>> =

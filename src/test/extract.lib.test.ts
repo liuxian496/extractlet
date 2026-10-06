@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import pkg from '../../package.json' with { type: 'json' };
 import {
   afterEach,
   beforeEach,
@@ -19,6 +20,7 @@ import {
   paint,
   parseArguments,
   showUsage,
+  showVersion,
 } from '../scripts/extract.lib.ts';
 
 const pdfMock = vi.hoisted(() => ({
@@ -99,6 +101,13 @@ describe('showUsage', () => {
   });
 });
 
+describe('showVersion', () => {
+  it('输出版本号', () => {
+    showVersion('1.0.0');
+    expect(logSpy).toHaveBeenCalledExactlyOnceWith('v1.0.0');
+  });
+});
+
 describe('paint', () => {
   let original: typeof process.stderr.hasColors;
 
@@ -164,6 +173,10 @@ describe('parseArguments', () => {
 
   it('--help 返回 null', () => {
     expect(parseArguments(['--help'])).toBeNull();
+  });
+
+  it('--version 返回版本号', () => {
+    expect(parseArguments(['--version'])).toBe(pkg.version);
   });
 
   it('参数错误时抛出附带用法说明的 CliError', () => {
@@ -268,6 +281,12 @@ describe('main', () => {
   it('--help 输出用法且不读取 PDF', async () => {
     await main(['--help']);
     expect(logSpy).toHaveBeenCalledExactlyOnceWith(getUsage());
+    expect(pdfMock.ctor).not.toHaveBeenCalled();
+  });
+
+  it('--version 输出用法且不读取 PDF', async () => {
+    await main(['--version']);
+    expect(logSpy).toHaveBeenCalledExactlyOnceWith(`v${pkg.version}`);
     expect(pdfMock.ctor).not.toHaveBeenCalled();
   });
 

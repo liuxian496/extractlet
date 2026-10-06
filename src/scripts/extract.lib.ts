@@ -47,17 +47,29 @@ export function showUsage(): void {
 }
 
 /**
+ * 在控制台显示版本号
+ * @param version 版本号
+ */
+export function showVersion(version: string): void {
+  console.log(`v${version}`)
+}
+
+/**
  * 解析命令行参数并校验 PDF 文件是否存在
  *
  * @param args - 命令行参数（不含 node 与脚本路径）
  * @returns 解析后的提取选项；指定 --help 时返回 null
  * @throws {CliError} 参数无效或文件不存在时抛出
  */
-export function parseArguments(args: string[]): ExtractOptions | null {
+export function parseArguments(args: string[]): ExtractOptions | string | null {
   debug('args: %o', args);
   const command = parseCliArgs(args);
   if (command.action === 'help') {
     return null;
+  }
+
+  if (command.action === 'version') {
+    return command.version
   }
 
   if (command.action === 'error') {
@@ -179,6 +191,11 @@ export async function main(args: string[]): Promise<void> {
   const options = parseArguments(args);
   if (options === null) {
     showUsage();
+    return;
+  }
+
+  if (typeof options === 'string') {
+    showVersion(options);
     return;
   }
 
