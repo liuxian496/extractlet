@@ -11,6 +11,7 @@ import {
   parsePageRanges,
 } from '../scripts/extract.core.ts';
 import type { LogLevel } from '../scripts/extract.core.types.ts';
+import pkg from '../../package.json' with { type: 'json' };
 
 interface CoreCaseProps {
   /** 被测调用 / Call under test */
@@ -405,6 +406,11 @@ export const CliHelpShort: Story = {
   args: { run: () => parseCliArgs(['-h']), expected: { action: 'help' } },
 };
 
+export const CliHelpVersion: Story = {
+  name: 'parseCliArgs：--version',
+  args: { run: () => parseCliArgs(['--version']), expected: { action: 'version', version: pkg.version } },
+}
+
 export const CliMissingPdf: Story = {
   name: 'parseCliArgs：缺少 --pdf 时返回错误',
   args: {
@@ -530,6 +536,7 @@ export const Usage: Story = {
       '-q, --quiet',
       '-v, --verbose',
       '-h, --help',
+      '-V', '--version',
     ]) {
       await expect(usage).toContain(option);
     }

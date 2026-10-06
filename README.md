@@ -97,6 +97,7 @@ extractlet --pdf "path/to/file.pdf" --verbose   # 额外输出选项、各阶段
 | `--quiet`         | `-q` | 不输出状态信息，仅保留警告与错误                   |
 | `--verbose`       | `-v` | 输出选项、各阶段耗时与每页字符数                   |
 | `--help`          | `-h` | 显示帮助信息                                       |
+| `--version`       | `-V` | 显示版本号                                         |
 
 长参数也支持 `--pdf=path/to/file.pdf` 写法；未知参数或缺少取值时会报错。
 
