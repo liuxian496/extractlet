@@ -29,6 +29,7 @@ export default defineConfig({
   test: {
     coverage: {
       provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov', 'clover'],
       include: ['src/scripts/**/*.ts'],
       exclude: ['src/scripts/extract.types.ts', 'src/scripts/extract.core.types.ts'],
       thresholds: {
