@@ -1,4 +1,8 @@
 # PDF 提取命令行工具
+![GitHub](https://img.shields.io/github/license/liuxian496/extractlet)
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/liuxian496/extractlet/test.yml)
+[![Coverage Status](https://coveralls.io/repos/github/liuxian496/extractlet/badge.svg?branch=main)](https://coveralls.io/github/liuxian496/extractlet?branch=main)
+![GitHub Repo stars](https://img.shields.io/github/stars/liuxian496/extractlet)
 
 一个轻量级命令行工具，用于按指定页码范围从 PDF 文件中提取文本。
 
