@@ -129,3 +129,9 @@ npm publish
 ```
 
 `prepublishOnly` 会在发布前自动执行 `npm run build`，发布内容仅包含 `dist/`、`package.json` 与 `README.md`。
+
+## 如果你想请我喝一咖啡（Buy Me a Coffee）
+
+<img src=".\\public\\wechat.jpg" height="360">
+
+<img src=".\\public\\alipay.jpg" height="360">
